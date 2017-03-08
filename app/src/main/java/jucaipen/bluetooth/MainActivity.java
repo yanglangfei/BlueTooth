@@ -8,10 +8,13 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -20,14 +23,35 @@ import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter adapter;
     private static final String TAG = "MainActivity";
     private List<BluetoothDevice>  devices=new ArrayList<>();
     private TextView blueBlack;
+    // 00001101-0000-1000-8000-00805F9B34FB
+    private  final  UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    // 字符串符合UUID的格式即可
+    public final String NAME = "Bluetooth_Socket";
+    private  Handler mHandle=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            int what = msg.what;
+            if(what==100){
+                String message= (String) msg.obj;
+                Toast.makeText(MainActivity.this, "接收到消息："+message, Toast.LENGTH_SHORT).show();
+            }
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,13 +80,20 @@ public class MainActivity extends AppCompatActivity {
 
         if(!adapter.isEnabled()){
             //直接开启蓝牙
-             adapter.enable();
+             adapter.disable();
 /*
             // Intent 隐式意图开启蓝牙   有提示
             Intent blue=new Intent();
             blue.setAction(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(blue,100);*/
         }
+        adapter.enable();
+
+        //设置蓝牙可被搜索到  必须在打开后执行
+        Intent discoverableIntent=new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        //可自定义可见时间(s)，最大长度为3600。最小为0，表示始终可见。默认120，超过3600会被设为120
+        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+        startActivity(discoverableIntent);
         scanLeDevice(true);
 
     }
@@ -107,13 +138,23 @@ public class MainActivity extends AppCompatActivity {
                                     Log.i(TAG, "监测到蓝牙设备:" + name+" address="+address);
                                     blueBlack.append(name+"\n");
 
-                                    /*if(name.equals("LIFE-82AE")){
+                                    if(name.equals("LIFE-82AE")){
                                         //连接指定的蓝牙设备
-                                        device.createBond();
-                                       // BluetoothGatt bluetoothGatt = device.connectGatt(MainActivity.this, false, GattCallback);
-
-
-                                    }*/
+                                        new ListenerReadMessage(adapter,NAME,MY_UUID,mHandle).start();
+                                    try {
+                                        //UUID  实际上是一个格式8-4-4-4-12的字符串
+                                        //UUID相当于Socket的端口，蓝牙地址相当于Socket的IP
+                                        BluetoothSocket toServiceRecord = device.createRfcommSocketToServiceRecord(MY_UUID);
+                                        toServiceRecord.connect();
+                                        Log.i(TAG,"client：连接成功====");
+                                        OutputStream outputStream = toServiceRecord.getOutputStream();
+                                        DataOutputStream dos=new DataOutputStream(outputStream);
+                                        dos.writeUTF("连接成功");
+                                        dos.flush();
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                    }
                                 }
                             }
                         }
@@ -126,91 +167,48 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    public BluetoothGattCallback GattCallback=new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            super.onConnectionStateChange(gatt, status, newState);
-            //连接状态发生改变
-            if(newState== BluetoothProfile.STATE_DISCONNECTED){
-                //设备中断
-                gatt.close();
-            }else  if(newState==BluetoothProfile.STATE_CONNECTED){
-                //设备连接成功
+      class  ListenerReadMessage extends  Thread {
 
-            }
+          private Handler mHandle;
+          private BluetoothServerSocket bluetoothServerSocket;
+          private BluetoothSocket socket;
 
-        }
+          public ListenerReadMessage(BluetoothAdapter adapter, String name, UUID my_uuid, Handler mHandle) {
+              try {
+                  bluetoothServerSocket = adapter.listenUsingRfcommWithServiceRecord(name, my_uuid);
+                  this.mHandle = mHandle;
+              } catch (IOException e) {
+                  e.printStackTrace();
+              }
+          }
 
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            super.onServicesDiscovered(gatt, status);
-            //发现新设备
+          @Override
+          public void run() {
+              //开启service 监听接收消息
+              if (bluetoothServerSocket != null) {
+                  try {
+                      socket = bluetoothServerSocket.accept();
+                      Log.i(TAG,"server:连接成功.....");
 
-        }
+                      InputStream inputStream = socket.getInputStream();
+                      OutputStream outputStream = socket.getOutputStream();
+                      DataOutputStream dos = new DataOutputStream(outputStream);
+                      DataInputStream dis = new DataInputStream(inputStream);
 
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            super.onCharacteristicRead(gatt, characteristic, status);
-            //回调响应读操作
-            if(status==BluetoothGatt.GATT_SUCCESS){
-                //主动读取Characteristic  中的数据
+                      //无限获取消息
+                      while (true) {
+                          String msg = dis.readUTF();
+                          if (mHandle != null && !TextUtils.isEmpty(msg)) {
+                              mHandle.obtainMessage(100, msg).sendToTarget();
+                          }
+                      }
 
-            }
+                  } catch (IOException e) {
+                      e.printStackTrace();
+                  }
 
-        }
-
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            super.onCharacteristicWrite(gatt, characteristic, status);
-            //回调响应写操作
-
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            super.onCharacteristicChanged(gatt, characteristic);
-            //当Characteristic里面的数据发生改变的时候
-
-        }
-
-        @Override
-        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorRead(gatt, descriptor, status);
-            //报告描述符读操作的结果
-
-
-        }
-
-        @Override
-        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorWrite(gatt, descriptor, status);
-            //指示描述符写操作的结果
-
-        }
-
-        @Override
-        public void onReliableWriteCompleted(BluetoothGatt gatt, int status) {
-            super.onReliableWriteCompleted(gatt, status);
-            //当可靠的写事务已完成时调用
-
-
-        }
-
-        @Override
-        public void onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status) {
-            super.onReadRemoteRssi(gatt, rssi, status);
-            //报告远程设备连接的RSSI
-
-
-        }
-
-        @Override
-        public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
-            super.onMtuChanged(gatt, mtu, status);
-            //指示给定设备连接的MTU已更改
-
-        }
-    };
-
+              }
+          }
+      }
 
 }
