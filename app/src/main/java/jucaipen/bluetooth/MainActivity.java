@@ -130,7 +130,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 blueAdapter.notifyDataSetChanged();
             }
         };
-
         // 注册广播
         registerReceiver(receiver, filter);
         // 搜索完成的广播
@@ -138,8 +137,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         // 注册广播
         registerReceiver(receiver, filter);
         scanLeDevice(true);
-
-
     }
 
     private void initView() {
