@@ -5,8 +5,11 @@
     <uses-permission android:name="android.permission.BLUETOOTH"></uses-permission>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"></uses-permission>
 
+    <uses-permission android:name="android.permission.NFC"></uses-permission>
+
     <!--程序只能在支持蓝牙的手机运行-->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"></uses-feature>
+    <uses-feature android:name="android.hardware.nfc" android:required="true"></uses-feature>
 
     <application
         android:allowBackup="true"
@@ -29,6 +32,17 @@
         <activity android:name=".activity.ServerActivity"
             android:screenOrientation="portrait"></activity>
         <activity android:name=".activity.ManagerActivity"></activity>
+
+        <activity android:name=".activity.NFCActivity"
+            android:label="I AM FNC"
+            android:launchMode="singleTask">
+            <intent-filter >
+                <action android:name="android.nfc.action.NDEF.DISCOVERED"></action>
+                <category android:name="android.intent.category.DEFAULT"></category>
+                <data android:mimeType="text/plain"></data>
+            </intent-filter>
+
+        </activity>
 
     </application>
 
