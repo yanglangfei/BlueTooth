@@ -230,7 +230,6 @@ public class ServerActivity extends AppCompatActivity implements View.OnClickLis
                        dos=new DataOutputStream(outputStream);
                        mHandle.obtainMessage(200).sendToTarget();
                    }
-
                } catch (IOException e) {
                    e.printStackTrace();
                }
@@ -238,5 +237,11 @@ public class ServerActivity extends AppCompatActivity implements View.OnClickLis
            }
        }.start();
 
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        isStop=true;
     }
 }

@@ -54,6 +54,11 @@ public class ClientActivity extends AppCompatActivity implements AdapterView.OnI
             if (what == 100) {
                 String message = (String) msg.obj;
                 Toast.makeText(ClientActivity.this, "接收到消息：" + message, Toast.LENGTH_SHORT).show();
+            }else if(what==200){
+                //连接成功
+                btnMsg.setEnabled(true);
+                Toast.makeText(ClientActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
+                new ListenerReadMessage(dis, mHandle).start();
             }
 
         }
@@ -145,6 +150,7 @@ public class ClientActivity extends AppCompatActivity implements AdapterView.OnI
         blueBlack.setOnItemClickListener(this);
         etMsg = (EditText) findViewById(R.id.etMsg);
         btnMsg = (Button) findViewById(R.id.btnMsg);
+        btnMsg.setEnabled(false);
         btnMsg.setOnClickListener(this);
     }
 
@@ -173,13 +179,13 @@ public class ClientActivity extends AppCompatActivity implements AdapterView.OnI
         try {
             socket = device.createRfcommSocketToServiceRecord(MY_UUID);
             socket.connect();
-            outputStream = socket.getOutputStream();
-            if(outputStream!=null){
+            if(socket!=null){
+                outputStream = socket.getOutputStream();
                 inputStream = socket.getInputStream();
                 dis = new DataInputStream(inputStream);
-                Toast.makeText(this, "连接成功", Toast.LENGTH_SHORT).show();
                 dos=new DataOutputStream(outputStream);
-                new ListenerReadMessage(dis, mHandle).start();
+                //连接成功
+                mHandle.obtainMessage(200).sendToTarget();
             }
         } catch (IOException e) {
             e.printStackTrace();
