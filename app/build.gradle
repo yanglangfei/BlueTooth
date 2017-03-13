@@ -27,4 +27,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.2.0'
     testCompile 'junit:junit:4.12'
     compile 'com.pixplicity.htmlcompat:library:1.0.0'
+    compile 'com.github.fccaikai:AppUpdate:2.0.1'
+    compile "me.leolin:ShortcutBadger:1.1.13@aar"
 }
